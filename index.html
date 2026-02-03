@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Click Monitor - Mouse Check Web App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            min-height: 600px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .settings-btn {
+            background: none;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            color: #666;
+            transition: all 0.3s;
+            padding: 5px;
+        }
+
+        .settings-btn:hover {
+            color: #333;
+            transform: rotate(90deg);
+        }
+
+        .phase-indicator {
+            background: #f5f5f5;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            transition: all 0.3s;
+        }
+
+        .phase-indicator.allowing {
+            background: rgba(52, 199, 89, 0.15);
+        }
+
+        .phase-indicator.prohibiting {
+            background: rgba(255, 59, 48, 0.15);
+        }
+
+        .phase-dot {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #999;
+            position: relative;
+            transition: all 0.3s;
+        }
+
+        .phase-dot::after {
+            content: '';
+            position: absolute;
+            top: -4px;
+            left: -4px;
+            right: -4px;
+            bottom: -4px;
+            border-radius: 50%;
+            border: 4px solid currentColor;
+            opacity: 0.3;
+        }
+
+        .phase-dot.allowing {
+            background: #34c759;
+            animation: pulse 1s ease-out infinite;
+        }
+
+        .phase-dot.prohibiting {
+            background: #ff3b30;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(52, 199, 89, 0.7);
+            }
+            100% {
+                box-shadow: 0 0 0 15px rgba(52, 199, 89, 0);
+            }
+        }
+
+        .phase-text {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .click-counter {
+            font-size: 24px;
+            text-align: center;
+            margin-bottom: 20px;
+            font-weight: 600;
+            color: #333;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .error-message {
+            background: rgba(255, 59, 48, 0.1);
+            border: 2px solid #ff3b30;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: #ff3b30;
+            font-weight: 600;
+            text-align: center;
+            animation: errorSlide 0.3s ease-out;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        @keyframes errorSlide {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .click-area {
+            background: rgba(52, 199, 89, 0.2);
+            border: 3px solid #34c759;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 20px 0;
+            user-select: none;
+            min-height: 150px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .click-area:hover:not(.disabled) {
+            transform: scale(1.02);
+            box-shadow: 0 5px 15px rgba(52, 199, 89, 0.3);
+        }
+
+        .click-area.disabled {
+            background: rgba(153, 153, 153, 0.2);
+            border-color: #999;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .click-area.prohibiting {
+            background: rgba(255, 59, 48, 0.2);
+            border-color: #ff3b30;
+        }
+
+        .click-area h2 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #34c759;
+        }
+
+        .click-area.disabled h2 {
+            color: #999;
+        }
+
+        .click-area p {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .controls {
+            margin-top: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .toggle-container {
+            background: #f5f5f5;
+            border-radius: 10px;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .toggle-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .toggle-label span {
+            font-size: 20px;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 28px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: 0.3s;
+            border-radius: 28px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: #34c759;
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(22px);
+        }
+
+        .manual-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #333;
+            border: 2px solid #ddd;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+            transform: translateY(-2px);
+        }
+
+        /* Settings Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.3s;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: slideUp 0.3s;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .modal-header h2 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .auto-saved-badge {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: #34c759;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .setting-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 12px;
+        }
+
+        .setting-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            color: #34c759;
+            font-weight: 600;
+        }
+
+        .setting-header.prohibiting {
+            color: #ff3b30;
+        }
+
+        .setting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .setting-label {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .setting-value {
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .setting-value.allowing {
+            color: #34c759;
+        }
+
+        .setting-value.prohibiting {
+            color: #ff3b30;
+        }
+
+        .slider {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #ddd;
+            outline: none;
+            -webkit-appearance: none;
+            margin: 10px 0;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+        }
+
+        .slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            border: none;
+        }
+
+        .slider.allowing::-webkit-slider-thumb {
+            background: #34c759;
+        }
+
+        .slider.allowing::-moz-range-thumb {
+            background: #34c759;
+        }
+
+        .slider.prohibiting::-webkit-slider-thumb {
+            background: #ff3b30;
+        }
+
+        .slider.prohibiting::-moz-range-thumb {
+            background: #ff3b30;
+        }
+
+        .setting-help {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .summary-section {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .summary-title {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .summary-row {
+            display: flex;
+            gap: 15px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .summary-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .persistence-note {
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #f9f9f9;
+            border-radius: 8px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        @media (max-width: 640px) {
+            .container {
+                padding: 25px;
+            }
+
+            .header h1 {
+                font-size: 24px;
+            }
+
+            .click-area {
+                padding: 30px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Click Monitor</h1>
+            <button class="settings-btn" id="settingsBtn" title="Settings">⚙️</button>
+        </div>
+
+        <div class="phase-indicator" id="phaseIndicator">
+            <div class="phase-dot" id="phaseDot"></div>
+            <div class="phase-text" id="phaseText">Idle - Not Running</div>
+        </div>
+
+        <div class="click-counter" id="clickCounter">Clicks: 0</div>
+
+        <div class="error-message" id="errorMessage"></div>
+
+        <div class="click-area disabled" id="clickArea">
+            <h2 id="clickAreaTitle">DISABLED</h2>
+            <p>Left or Right Click</p>
+        </div>
+
+        <div class="controls">
+            <div class="toggle-container">
+                <label class="toggle-label">
+                    <span>🔁</span>
+                    <span>Auto Cycling</span>
+                </label>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="autoCycleToggle">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <div class="manual-controls" id="manualControls">
+                <button class="btn btn-primary" id="startBtn">Start Cycle</button>
+                <button class="btn btn-secondary" id="stopBtn">Stop Cycle</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Settings</h2>
+                <div class="auto-saved-badge">
+                    <span>✓</span>
+                    <span>Auto-saved</span>
+                </div>
+            </div>
+
+            <div class="setting-section">
+                <div class="setting-header">
+                    <span>✋</span>
+                    <span>Allowing Phase</span>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-label">Allowing Clicks Duration</div>
+                    <div class="setting-value allowing" id="allowingValue">3.0s</div>
+                </div>
+                <input type="range" class="slider allowing" id="allowingSlider" 
+                       min="1" max="10" step="0.5" value="3">
+                <div class="setting-help">Time window for clicking (green phase)</div>
+            </div>
+
+            <div class="setting-section">
+                <div class="setting-header prohibiting">
+                    <span>🛑</span>
+                    <span>Prohibiting Phase</span>
+                </div>
+                <div class="setting-row">
+                    <div class="setting-label">Prohibiting Clicks Duration</div>
+                    <div class="setting-value prohibiting" id="prohibitingValue">2.0s</div>
+                </div>
+                <input type="range" class="slider prohibiting" id="prohibitingSlider" 
+                       min="1" max="10" step="0.5" value="2">
+                <div class="setting-help">Time when clicks are blocked (red phase)</div>
+            </div>
+
+            <div class="summary-section">
+                <div class="summary-title">Summary</div>
+                <div class="summary-row">
+                    <div class="summary-item">
+                        <strong>Total Cycle Time:</strong>
+                        <span id="totalCycle">5.0s</span>
+                    </div>
+                </div>
+                <div class="summary-row">
+                    <div class="summary-item">
+                        <span style="color: #34c759;">●</span>
+                        <span id="allowingSummary">Allowing: 3.0s</span>
+                    </div>
+                    <div class="summary-item">
+                        <span style="color: #ff3b30;">●</span>
+                        <span id="prohibitingSummary">Prohibiting: 2.0s</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="persistence-note">
+                Settings are automatically saved and will persist after restarting the app.
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="resetBtn">Reset to Defaults</button>
+                <button class="btn btn-primary" id="doneBtn">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class ClickMonitor {
+            // Phase constants
+            static PHASE_IDLE = 'idle';
+            static PHASE_ALLOWING = 'allowing';
+            static PHASE_PROHIBITING = 'prohibiting';
+            
+            // Check interval for monitoring interrupts (milliseconds)
+            static CHECK_INTERVAL_MS = 100;
+            
+            // Default durations (seconds)
+            static DEFAULT_ALLOWING_DURATION = 3.0;
+            static DEFAULT_PROHIBITING_DURATION = 2.0;
+            
+            constructor() {
+                this.phase = ClickMonitor.PHASE_IDLE;
+                this.clickCount = 0;
+                this.errorMessage = null;
+                this.isAutoCycling = false;
+                this.shouldInterrupt = false;
+                this.cycleTimeout = null;
+                this.phaseTimeout = null;
+                
+                // Load settings from localStorage or use defaults
+                this.allowingDuration = this.loadDuration('allowingDuration', ClickMonitor.DEFAULT_ALLOWING_DURATION);
+                this.prohibitingDuration = this.loadDuration('prohibitingDuration', ClickMonitor.DEFAULT_PROHIBITING_DURATION);
+                
+                this.initializeUI();
+                this.attachEventListeners();
+            }
+            
+            loadDuration(key, defaultValue) {
+                const stored = localStorage.getItem(key);
+                if (stored === null) return defaultValue;
+                
+                const parsed = parseFloat(stored);
+                if (Number.isNaN(parsed) || parsed < 1 || parsed > 10) {
+                    return defaultValue;
+                }
+                return parsed;
+            }
+            
+            saveDuration(key, value) {
+                const parsed = parseFloat(value);
+                if (Number.isNaN(parsed)) {
+                    console.error(`Invalid duration value: ${value}`);
+                    return;
+                }
+                localStorage.setItem(key, parsed.toString());
+            }
+
+            initializeUI() {
+                // Initialize settings UI
+                document.getElementById('allowingSlider').value = this.allowingDuration;
+                document.getElementById('prohibitingSlider').value = this.prohibitingDuration;
+                this.updateSettingsDisplay();
+                this.updatePhaseDisplay();
+                this.updateClickCounter();
+            }
+
+            attachEventListeners() {
+                // Click area events
+                const clickArea = document.getElementById('clickArea');
+                clickArea.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.registerClick();
+                });
+                clickArea.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    this.registerClick();
+                });
+
+                // Control buttons
+                document.getElementById('autoCycleToggle').addEventListener('change', (e) => {
+                    this.setAutoCycling(e.target.checked);
+                });
+                document.getElementById('startBtn').addEventListener('click', () => {
+                    this.startCycle();
+                });
+                document.getElementById('stopBtn').addEventListener('click', () => {
+                    this.stopCycle();
+                });
+
+                // Settings
+                document.getElementById('settingsBtn').addEventListener('click', () => {
+                    this.showSettings();
+                });
+                document.getElementById('doneBtn').addEventListener('click', () => {
+                    this.hideSettings();
+                });
+                document.getElementById('resetBtn').addEventListener('click', () => {
+                    this.resetToDefaults();
+                });
+
+                // Settings sliders
+                document.getElementById('allowingSlider').addEventListener('input', (e) => {
+                    this.allowingDuration = parseFloat(e.target.value);
+                    this.saveDuration('allowingDuration', this.allowingDuration);
+                    this.updateSettingsDisplay();
+                    this.updatePhaseDisplay();
+                });
+                document.getElementById('prohibitingSlider').addEventListener('input', (e) => {
+                    this.prohibitingDuration = parseFloat(e.target.value);
+                    this.saveDuration('prohibitingDuration', this.prohibitingDuration);
+                    this.updateSettingsDisplay();
+                    this.updatePhaseDisplay();
+                });
+
+                // Close modal on outside click
+                document.getElementById('settingsModal').addEventListener('click', (e) => {
+                    if (e.target.id === 'settingsModal') {
+                        this.hideSettings();
+                    }
+                });
+            }
+
+            registerClick() {
+                if (this.phase !== ClickMonitor.PHASE_ALLOWING) {
+                    return;
+                }
+                
+                this.clickCount++;
+                this.updateClickCounter();
+                
+                // Immediately interrupt if multiple clicks
+                if (this.clickCount > 1) {
+                    this.errorMessage = `❌ Multiple clicks detected (${this.clickCount}) - only 1 click allowed`;
+                    this.shouldInterrupt = true;
+                    this.showError();
+                }
+            }
+
+            setAutoCycling(enabled) {
+                this.isAutoCycling = enabled;
+                const manualControls = document.getElementById('manualControls');
+                
+                if (enabled) {
+                    manualControls.style.display = 'none';
+                    this.startAutoCycling();
+                } else {
+                    manualControls.style.display = 'flex';
+                    this.stopAutoCycling();
+                }
+            }
+
+            startAutoCycling() {
+                this.runCycle(true);
+            }
+
+            stopAutoCycling() {
+                this.isAutoCycling = false;
+                if (this.cycleTimeout) {
+                    clearTimeout(this.cycleTimeout);
+                    this.cycleTimeout = null;
+                }
+                if (this.phaseTimeout) {
+                    clearTimeout(this.phaseTimeout);
+                    this.phaseTimeout = null;
+                }
+                this.resetState();
+            }
+
+            startCycle() {
+                if (this.phase !== ClickMonitor.PHASE_IDLE) return;
+                this.runCycle(false);
+            }
+
+            stopCycle() {
+                this.stopAutoCycling();
+                document.getElementById('autoCycleToggle').checked = false;
+            }
+
+            runCycle(autoCycle) {
+                // Clear previous state
+                this.errorMessage = null;
+                this.clickCount = 0;
+                this.shouldInterrupt = false;
+                this.hideError();
+                this.updateClickCounter();
+
+                // Start allowing phase
+                this.phase = ClickMonitor.PHASE_ALLOWING;
+                this.updatePhaseDisplay();
+                this.updateClickAreaState();
+
+                const allowingMs = this.allowingDuration * 1000;
+                const checkInterval = ClickMonitor.CHECK_INTERVAL_MS;
+                let elapsed = 0;
+
+                const checkInterrupt = () => {
+                    elapsed += checkInterval;
+                    
+                    if (this.shouldInterrupt || elapsed >= allowingMs) {
+                        // End allowing phase
+                        this.validateClicks();
+                        this.startProhibitingPhase(autoCycle);
+                    } else {
+                        this.phaseTimeout = setTimeout(checkInterrupt, checkInterval);
+                    }
+                };
+
+                this.phaseTimeout = setTimeout(checkInterrupt, checkInterval);
+            }
+
+            startProhibitingPhase(autoCycle) {
+                this.phase = ClickMonitor.PHASE_PROHIBITING;
+                this.updatePhaseDisplay();
+                this.updateClickAreaState();
+
+                const prohibitingMs = this.prohibitingDuration * 1000;
+                
+                this.phaseTimeout = setTimeout(() => {
+                    if (autoCycle && this.isAutoCycling) {
+                        this.runCycle(true);
+                    } else {
+                        this.resetState();
+                    }
+                }, prohibitingMs);
+            }
+
+            validateClicks() {
+                if (!this.shouldInterrupt) {
+                    if (this.clickCount === 0) {
+                        this.errorMessage = '❌ No click detected during the allowed period';
+                        this.showError();
+                    } else if (this.clickCount > 1) {
+                        this.errorMessage = `❌ Multiple clicks detected (${this.clickCount}) - only 1 click allowed`;
+                        this.showError();
+                    } else {
+                        // Success - exactly 1 click
+                        this.errorMessage = null;
+                        this.hideError();
+                    }
+                }
+            }
+
+            resetState() {
+                this.phase = ClickMonitor.PHASE_IDLE;
+                this.clickCount = 0;
+                this.errorMessage = null;
+                this.shouldInterrupt = false;
+                
+                if (this.phaseTimeout) {
+                    clearTimeout(this.phaseTimeout);
+                    this.phaseTimeout = null;
+                }
+                if (this.cycleTimeout) {
+                    clearTimeout(this.cycleTimeout);
+                    this.cycleTimeout = null;
+                }
+                
+                this.updatePhaseDisplay();
+                this.updateClickCounter();
+                this.updateClickAreaState();
+                this.hideError();
+            }
+
+            updatePhaseDisplay() {
+                const indicator = document.getElementById('phaseIndicator');
+                const dot = document.getElementById('phaseDot');
+                const text = document.getElementById('phaseText');
+
+                indicator.className = 'phase-indicator';
+                dot.className = 'phase-dot';
+
+                switch (this.phase) {
+                    case ClickMonitor.PHASE_ALLOWING:
+                        indicator.classList.add('allowing');
+                        dot.classList.add('allowing');
+                        text.textContent = `Clicks ALLOWED (${this.allowingDuration.toFixed(1)}s)`;
+                        break;
+                    case ClickMonitor.PHASE_PROHIBITING:
+                        indicator.classList.add('prohibiting');
+                        dot.classList.add('prohibiting');
+                        text.textContent = `Clicks PROHIBITED (${this.prohibitingDuration.toFixed(1)}s)`;
+                        break;
+                    case ClickMonitor.PHASE_IDLE:
+                    default:
+                        text.textContent = 'Idle - Not Running';
+                        break;
+                }
+            }
+
+            updateClickCounter() {
+                document.getElementById('clickCounter').textContent = `Clicks: ${this.clickCount}`;
+            }
+
+            updateClickAreaState() {
+                const clickArea = document.getElementById('clickArea');
+                const title = document.getElementById('clickAreaTitle');
+
+                clickArea.className = 'click-area';
+
+                if (this.phase === ClickMonitor.PHASE_ALLOWING) {
+                    title.textContent = 'CLICK HERE';
+                    title.style.color = '#34c759';
+                } else if (this.phase === ClickMonitor.PHASE_PROHIBITING) {
+                    clickArea.classList.add('disabled', 'prohibiting');
+                    title.textContent = 'DISABLED';
+                    title.style.color = '#999';
+                } else {
+                    clickArea.classList.add('disabled');
+                    title.textContent = 'DISABLED';
+                    title.style.color = '#999';
+                }
+            }
+
+            showError() {
+                const errorEl = document.getElementById('errorMessage');
+                errorEl.textContent = this.errorMessage;
+                errorEl.classList.add('show');
+            }
+
+            hideError() {
+                const errorEl = document.getElementById('errorMessage');
+                errorEl.classList.remove('show');
+            }
+
+            showSettings() {
+                document.getElementById('settingsModal').classList.add('show');
+            }
+
+            hideSettings() {
+                document.getElementById('settingsModal').classList.remove('show');
+            }
+
+            updateSettingsDisplay() {
+                document.getElementById('allowingValue').textContent = `${this.allowingDuration.toFixed(1)}s`;
+                document.getElementById('prohibitingValue').textContent = `${this.prohibitingDuration.toFixed(1)}s`;
+                
+                const total = this.allowingDuration + this.prohibitingDuration;
+                document.getElementById('totalCycle').textContent = `${total.toFixed(1)}s`;
+                document.getElementById('allowingSummary').textContent = `Allowing: ${this.allowingDuration.toFixed(1)}s`;
+                document.getElementById('prohibitingSummary').textContent = `Prohibiting: ${this.prohibitingDuration.toFixed(1)}s`;
+            }
+
+            resetToDefaults() {
+                this.allowingDuration = ClickMonitor.DEFAULT_ALLOWING_DURATION;
+                this.prohibitingDuration = ClickMonitor.DEFAULT_PROHIBITING_DURATION;
+                
+                this.saveDuration('allowingDuration', this.allowingDuration);
+                this.saveDuration('prohibitingDuration', this.prohibitingDuration);
+                
+                document.getElementById('allowingSlider').value = this.allowingDuration;
+                document.getElementById('prohibitingSlider').value = this.prohibitingDuration;
+                
+                this.updateSettingsDisplay();
+                this.updatePhaseDisplay();
+            }
+        }
+
+        // Initialize the application
+        const monitor = new ClickMonitor();
+    </script>
+</body>
+</html>
