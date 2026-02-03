@@ -660,8 +660,20 @@
 
     <script>
         class ClickMonitor {
+            // Phase constants
+            static PHASE_IDLE = 'idle';
+            static PHASE_ALLOWING = 'allowing';
+            static PHASE_PROHIBITING = 'prohibiting';
+            
+            // Check interval for monitoring interrupts (milliseconds)
+            static CHECK_INTERVAL_MS = 100;
+            
+            // Default durations (seconds)
+            static DEFAULT_ALLOWING_DURATION = 3.0;
+            static DEFAULT_PROHIBITING_DURATION = 2.0;
+            
             constructor() {
-                this.phase = 'idle'; // idle, allowing, prohibiting
+                this.phase = ClickMonitor.PHASE_IDLE;
                 this.clickCount = 0;
                 this.errorMessage = null;
                 this.isAutoCycling = false;
@@ -670,11 +682,31 @@
                 this.phaseTimeout = null;
                 
                 // Load settings from localStorage or use defaults
-                this.allowingDuration = parseFloat(localStorage.getItem('allowingDuration')) || 3.0;
-                this.prohibitingDuration = parseFloat(localStorage.getItem('prohibitingDuration')) || 2.0;
+                this.allowingDuration = this.loadDuration('allowingDuration', ClickMonitor.DEFAULT_ALLOWING_DURATION);
+                this.prohibitingDuration = this.loadDuration('prohibitingDuration', ClickMonitor.DEFAULT_PROHIBITING_DURATION);
                 
                 this.initializeUI();
                 this.attachEventListeners();
+            }
+            
+            loadDuration(key, defaultValue) {
+                const stored = localStorage.getItem(key);
+                if (stored === null) return defaultValue;
+                
+                const parsed = parseFloat(stored);
+                if (Number.isNaN(parsed) || parsed < 1 || parsed > 10) {
+                    return defaultValue;
+                }
+                return parsed;
+            }
+            
+            saveDuration(key, value) {
+                const parsed = parseFloat(value);
+                if (Number.isNaN(parsed)) {
+                    console.error(`Invalid duration value: ${value}`);
+                    return;
+                }
+                localStorage.setItem(key, parsed.toString());
             }
 
             initializeUI() {
@@ -723,13 +755,13 @@
                 // Settings sliders
                 document.getElementById('allowingSlider').addEventListener('input', (e) => {
                     this.allowingDuration = parseFloat(e.target.value);
-                    localStorage.setItem('allowingDuration', this.allowingDuration);
+                    this.saveDuration('allowingDuration', this.allowingDuration);
                     this.updateSettingsDisplay();
                     this.updatePhaseDisplay();
                 });
                 document.getElementById('prohibitingSlider').addEventListener('input', (e) => {
                     this.prohibitingDuration = parseFloat(e.target.value);
-                    localStorage.setItem('prohibitingDuration', this.prohibitingDuration);
+                    this.saveDuration('prohibitingDuration', this.prohibitingDuration);
                     this.updateSettingsDisplay();
                     this.updatePhaseDisplay();
                 });
@@ -743,7 +775,7 @@
             }
 
             registerClick() {
-                if (this.phase !== 'allowing') {
+                if (this.phase !== ClickMonitor.PHASE_ALLOWING) {
                     return;
                 }
                 
@@ -789,7 +821,7 @@
             }
 
             startCycle() {
-                if (this.phase !== 'idle') return;
+                if (this.phase !== ClickMonitor.PHASE_IDLE) return;
                 this.runCycle(false);
             }
 
@@ -807,12 +839,12 @@
                 this.updateClickCounter();
 
                 // Start allowing phase
-                this.phase = 'allowing';
+                this.phase = ClickMonitor.PHASE_ALLOWING;
                 this.updatePhaseDisplay();
                 this.updateClickAreaState();
 
                 const allowingMs = this.allowingDuration * 1000;
-                const checkInterval = 100;
+                const checkInterval = ClickMonitor.CHECK_INTERVAL_MS;
                 let elapsed = 0;
 
                 const checkInterrupt = () => {
@@ -831,7 +863,7 @@
             }
 
             startProhibitingPhase(autoCycle) {
-                this.phase = 'prohibiting';
+                this.phase = ClickMonitor.PHASE_PROHIBITING;
                 this.updatePhaseDisplay();
                 this.updateClickAreaState();
 
@@ -863,7 +895,7 @@
             }
 
             resetState() {
-                this.phase = 'idle';
+                this.phase = ClickMonitor.PHASE_IDLE;
                 this.clickCount = 0;
                 this.errorMessage = null;
                 this.shouldInterrupt = false;
@@ -892,17 +924,17 @@
                 dot.className = 'phase-dot';
 
                 switch (this.phase) {
-                    case 'allowing':
+                    case ClickMonitor.PHASE_ALLOWING:
                         indicator.classList.add('allowing');
                         dot.classList.add('allowing');
                         text.textContent = `Clicks ALLOWED (${this.allowingDuration.toFixed(1)}s)`;
                         break;
-                    case 'prohibiting':
+                    case ClickMonitor.PHASE_PROHIBITING:
                         indicator.classList.add('prohibiting');
                         dot.classList.add('prohibiting');
                         text.textContent = `Clicks PROHIBITED (${this.prohibitingDuration.toFixed(1)}s)`;
                         break;
-                    case 'idle':
+                    case ClickMonitor.PHASE_IDLE:
                     default:
                         text.textContent = 'Idle - Not Running';
                         break;
@@ -919,10 +951,10 @@
 
                 clickArea.className = 'click-area';
 
-                if (this.phase === 'allowing') {
+                if (this.phase === ClickMonitor.PHASE_ALLOWING) {
                     title.textContent = 'CLICK HERE';
                     title.style.color = '#34c759';
-                } else if (this.phase === 'prohibiting') {
+                } else if (this.phase === ClickMonitor.PHASE_PROHIBITING) {
                     clickArea.classList.add('disabled', 'prohibiting');
                     title.textContent = 'DISABLED';
                     title.style.color = '#999';
@@ -963,11 +995,11 @@
             }
 
             resetToDefaults() {
-                this.allowingDuration = 3.0;
-                this.prohibitingDuration = 2.0;
+                this.allowingDuration = ClickMonitor.DEFAULT_ALLOWING_DURATION;
+                this.prohibitingDuration = ClickMonitor.DEFAULT_PROHIBITING_DURATION;
                 
-                localStorage.setItem('allowingDuration', this.allowingDuration);
-                localStorage.setItem('prohibitingDuration', this.prohibitingDuration);
+                this.saveDuration('allowingDuration', this.allowingDuration);
+                this.saveDuration('prohibitingDuration', this.prohibitingDuration);
                 
                 document.getElementById('allowingSlider').value = this.allowingDuration;
                 document.getElementById('prohibitingSlider').value = this.prohibitingDuration;
